@@ -28,9 +28,30 @@ getBulls = (req, res, next) ->
 
 postCow = (req, res, next) ->
 	console.log 'postCow: ' + req
-	
-getShippingCost = (itemId, callback) ->
-	return 9
+
+createEbayHTML = (items, shippingCosts) ->
+  html = '<html><body><table border="1">'
+  count = 0
+  for item in items
+    console.log item
+    html = html + '<tr>'
+    html = html + '<td>' + item.title + '</td>'
+    html = html + '<td><img src="' + item.galleryURL + '"></td>'
+    html = html + '<td>$' + item.sellingStatus.currentPrice.USD + '</td>'
+    html = html + '<td><a href="' + item.viewItemURL + '">ebay</a></td>'
+    html = html + '<td id="shippingCost">' + shippingCosts[count++] + '</td>'
+    html = html + '</tr>'
+
+  html = html + '</table></body></html>'
+  return html
+
+calculateShippingCosts = (items, callback) ->
+  costs = []
+  count = 0
+  Option option = new Option('','GetShippingCosts')
+  for item in items
+    costs[count++] = 9
+  callback(costs)
 
 callEbay = (req, res, next) ->
 	params = {}
@@ -42,33 +63,21 @@ callEbay = (req, res, next) ->
 		new ebay.ItemFilter("FreeShippingOnly", false),
 		new ebay.ItemFilter("AvailableTo", 'NO')
 	]
-	#filters.domainFilter = [new ebay.ItemFilter("domainName", "Motors")]
-	#option = new Option('FindingService', 'findItemsByKeywords')
 	option = new Option('FindingService', 'findItemsAdvanced')
 	option.setFilters(filters)
 	option.setParams(params)
 	getEbayRequest(option, (error, items) ->
-		console.log 'got response, error: ' + error + ', items: ' + items
-		html = '<html><body><table border="1">'
-		for item in items
-			console.log item
-			html = html + '<tr>'
-			html = html + '<td>' + item.title + '</td>'
-			html = html + '<td><img src="' + item.galleryURL + '"></td>'
-			html = html + '<td>$' + item.sellingStatus.currentPrice.USD + '</td>'
-			html = html + '<td><a href="' + item.viewItemURL + '">ebay</a></td>'
-			html = html + '<td>' + getShippingCost(item.itemId, () -> console.log 'got callback call...') + '</td>'
-			html = html + '</tr>'
-		
-		html = html + '</table></body></html>'
-
-		res.writeHead(200, {
-		  'Content-Length': Buffer.byteLength(html),
-		  'Content-Type': 'text/html'
-		})
-		res.write(html)
-		res.end()
-	)
+    console.log 'got response, error: ' + error + ', items: ' + items
+    calculateShippingCosts(items, (shippingCosts) ->
+      html = createEbayHTML(items, shippingCosts)
+      res.writeHead(200, {
+        'Content-Length': Buffer.byteLength(html),
+        'Content-Type': 'text/html'
+      })
+      res.write(html)
+      res.end()
+    )
+  )
 			
 createError = (err) ->
 	console.log 'error: ' + err
