@@ -42,14 +42,11 @@ postCow = (req, res, next) ->
 sortByDate = (a, b) ->
   aName = new Date(a.listingInfo.startTime)
   bName = new Date(b.listingInfo.startTime) 
-  console.log 'aName: ' + aName
-  console.log 'bName: ' + bName
   ret = 0
   if(aName.getTime() < bName.getTime())
     ret = 1
   else if(aName.getTime() > bName.getTime())
     ret = -1
-  console.log ret
   return ret
   
 createEbayHTML = (inItems, shippingCosts) ->
@@ -57,9 +54,10 @@ createEbayHTML = (inItems, shippingCosts) ->
   html = '<html><body><table border="1">'
   html = html + '<tr><td>Found' + items.length + ' items</td></tr>'
   count = 0
+  now = new Date()
   for item in items
     html = html + '<tr>'
-    html = html + '<td><table><tr><td>' + item.title + '</td></tr><tr><td>' + item.title + '</td></tr></table></td>'
+    html = html + '<td><table><tr><td>' + item.title + '</td></tr><tr><td>' + '&nbsp;' + '</td></tr></table></td>'
     html = html + '<td><img src="' + item.galleryURL + '"></td>'
     html = html + '<td>$' + item.sellingStatus.currentPrice.USD + '</td>'
     html = html + '<td><a href="' + item.viewItemURL + '">ebay</a></td>'
@@ -67,8 +65,13 @@ createEbayHTML = (inItems, shippingCosts) ->
     html = html + '<td>' + item.listingInfo.buyItNowAvailable + '</td>'
     startTime = new Date(item.listingInfo.startTime)
     endTime = new Date(item.listingInfo.endTime)
-    html = html + '<td>' + startTime.getDate() + '.' + (startTime.getMonth() + 1) + '</td>'
-    html = html + '<td>' + endTime.getDate() + '.' + (endTime.getMonth() + 1) + '</td>'
+    diffTime = now - startTime
+    diffTimeMinutes = Math.floor(diffTime / 1000 / 60)
+    diffTimeHours = Math.floor(diffTime / 1000 / 60 / 60)
+    diffTimeDays = Math.floor(diffTimeHours / 24)
+    html = html + '<td>' + startTime.getDate() + '/' + (startTime.getMonth() + 1) + '</td>'
+    html = html + '<td>' + diffTimeMinutes + ' mins (' + diffTimeDays + 'd)</td>'
+    html = html + '<td>' + endTime.getDate() + '/' + (endTime.getMonth() + 1) + '</td>'
     html = html + '</tr>'
 
   html = html + '</table></body></html>'
