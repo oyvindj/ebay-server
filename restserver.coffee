@@ -22,6 +22,8 @@ callEbay = (option, callback) ->
     if(data != undefined)
       #console.log 'data: ' + data
       console.log("data: %j", data)
+      #console.log ebay.flatten(data)
+
     callback(error, data)
   )
 
@@ -52,37 +54,39 @@ createEbayHTML = (items, shippingCosts) ->
   html = html + '</table></body></html>'
   return html
 
-#calculateShippingCosts2 = (items, callback) ->
-#  console.log 'calculating shipping for items'
-#  costs = []
-#  resultCount = 0
-#  index = 0
-#  #option = new Option('ShippingService','getShippingCosts')
-#  for item in items
-#    shippingOption = new Option('ShippingService','GetItemShipping')
-#    console.log 'making call for item: ' + item.itemId
-#    params = {}
-#    params.ItemID = item.itemId
-#    params.DestinationCountryCode = 'NO'
-#    params.DestinationPostalCode = '1903'
-#    params.MessageID = item.itemId
-#    shippingOption.setParams(params)
-#    callEbay(shippingOption, (error, shippingCost) ->
-#      console.log 'got shipping call response'
-#      resultCount++
-#      costs[index] = shippingCost;
-#      if(resultCount == items.length)
-#        console.log 'got all shipping costs'
-#        callback(costs)
-#    )
-#    index++
-
-calculateShippingCosts = (items, callback) ->
+getShippingCosts = (items, callback) ->
   console.log 'calculating shipping for items'
   costs = []
   resultCount = 0
   index = 0
-  #option = new Option('ShippingService','getShippingCosts')
+  shippingOption = new Option('Shopping','GetShippingCosts')
+  for item in items
+    console.log 'making shipping cost call for item: ' + item.itemId
+    params = {}
+    params.ItemID = item.itemId
+    params.DestinationCountryCode = 'NO'
+    #params.DestinationPostalCode = '1903'
+    params.IncludeDetails = true
+    params.MessageID = item.itemId
+    paginationInput = {}
+    paginationInput.entriesPerPage = 3
+    params.paginationInput = paginationInput
+    shippingOption.setParams(params)
+    callEbay(shippingOption, (error, shippingCost) ->
+      console.log 'got shipping call response'
+      resultCount++
+      costs[index] = shippingCost;
+      if(resultCount == items.length)
+        console.log 'got all shipping costs'
+        callback(costs)
+    )
+    index++
+
+getEbayItems = (items, callback) ->
+  console.log 'calculating shipping for items'
+  costs = []
+  resultCount = 0
+  index = 0
   option = new Option('Shopping','GetSingleItem')
   for item in items
     console.log 'making call for item: ' + item.itemId
@@ -90,11 +94,11 @@ calculateShippingCosts = (items, callback) ->
     params.ItemID = item.itemId
     params.MessageID = index
     option.setParams(params)
-    callEbay(option, (error, item) ->
-      console.log 'got shipping call response: ' + item[0]
-      costs[resultCount++] = item[0];
+    callEbay(option, (error, ebayItem) ->
+      console.log 'got ebay item response: ' + ebayItem
+      costs[resultCount++] = ebayItem[0];
       if(resultCount == items.length)
-        console.log 'got all shipping costs'
+        console.log 'got all ebay items'
         callback(costs)
     )
     index++
@@ -108,13 +112,14 @@ getEbay = (req, res, next) ->
   filters.itemFilter = [
     new ebay.ItemFilter("FreeShippingOnly", false),
     new ebay.ItemFilter("AvailableTo", 'NO')
+    #new ebay.AspectFilter("MaxItems", 3)
   ]
   option = new Option('FindingService', 'findItemsAdvanced')
   option.setFilters(filters)
   option.setParams(params)
   callEbay(option, (error, items) ->
-    calculateShippingCosts(items, (shippingCosts) ->
-      console.log 'got shipping costs: ' + shippingCosts
+    getShippingCosts(items, (shippingCosts) ->
+      console.log 'got shipping cost'
       html = createEbayHTML(items, shippingCosts)
       res.writeHead(200, {
         'Content-Length': Buffer.byteLength(html),
