@@ -14,8 +14,16 @@ class Option
 	setFilters: (@filters) ->
 	setParams: (@params) ->
 
-getEbayRequest = (option, callback) ->
-	ebay.ebayApiGetRequest(option, callback)
+callEbay = (option, callback) ->
+  #console.log 'calling ebay with option: ' + option
+	ebay.ebayApiGetRequest(option, (error, data) ->
+    console.log 'got response'
+    console.log 'error: ' + error
+    if(data != undefined)
+      #console.log 'data: ' + data
+      console.log("data: %j", data)
+    callback(error, data)
+  )
 
 
 server = restify.createServer()
@@ -33,9 +41,8 @@ createEbayHTML = (items, shippingCosts) ->
   html = '<html><body><table border="1">'
   count = 0
   for item in items
-    console.log item
     html = html + '<tr>'
-    html = html + '<td>' + item.title + '</td>'
+    html = html + '<td><table><tr><td>' + item.title + '</td></tr><tr><td>' + item.title + '</td></tr></table></td>'
     html = html + '<td><img src="' + item.galleryURL + '"></td>'
     html = html + '<td>$' + item.sellingStatus.currentPrice.USD + '</td>'
     html = html + '<td><a href="' + item.viewItemURL + '">ebay</a></td>'
@@ -45,30 +52,69 @@ createEbayHTML = (items, shippingCosts) ->
   html = html + '</table></body></html>'
   return html
 
-calculateShippingCosts = (items, callback) ->
-  costs = []
-  count = 0
-  Option option = new Option('','GetShippingCosts')
-  for item in items
-    costs[count++] = 9
-  callback(costs)
+#calculateShippingCosts2 = (items, callback) ->
+#  console.log 'calculating shipping for items'
+#  costs = []
+#  resultCount = 0
+#  index = 0
+#  #option = new Option('ShippingService','getShippingCosts')
+#  for item in items
+#    shippingOption = new Option('ShippingService','GetItemShipping')
+#    console.log 'making call for item: ' + item.itemId
+#    params = {}
+#    params.ItemID = item.itemId
+#    params.DestinationCountryCode = 'NO'
+#    params.DestinationPostalCode = '1903'
+#    params.MessageID = item.itemId
+#    shippingOption.setParams(params)
+#    callEbay(shippingOption, (error, shippingCost) ->
+#      console.log 'got shipping call response'
+#      resultCount++
+#      costs[index] = shippingCost;
+#      if(resultCount == items.length)
+#        console.log 'got all shipping costs'
+#        callback(costs)
+#    )
+#    index++
 
-callEbay = (req, res, next) ->
-	params = {}
-	params.keywords = [ "Porsche", "944" ];
-	params.categoryId = 6028
-	params.descriptionSearch = true
-	filters = {}
-	filters.itemFilter = [
-		new ebay.ItemFilter("FreeShippingOnly", false),
-		new ebay.ItemFilter("AvailableTo", 'NO')
-	]
-	option = new Option('FindingService', 'findItemsAdvanced')
-	option.setFilters(filters)
-	option.setParams(params)
-	getEbayRequest(option, (error, items) ->
-    console.log 'got response, error: ' + error + ', items: ' + items
+calculateShippingCosts = (items, callback) ->
+  console.log 'calculating shipping for items'
+  costs = []
+  resultCount = 0
+  index = 0
+  #option = new Option('ShippingService','getShippingCosts')
+  option = new Option('Shopping','GetSingleItem')
+  for item in items
+    console.log 'making call for item: ' + item.itemId
+    params = {}
+    params.ItemID = item.itemId
+    params.MessageID = index
+    option.setParams(params)
+    callEbay(option, (error, item) ->
+      console.log 'got shipping call response: ' + item[0]
+      costs[resultCount++] = item[0];
+      if(resultCount == items.length)
+        console.log 'got all shipping costs'
+        callback(costs)
+    )
+    index++
+
+getEbay = (req, res, next) ->
+  params = {}
+  params.keywords = [ "Porsche", "944" ];
+  params.categoryId = 6028
+  params.descriptionSearch = true
+  filters = {}
+  filters.itemFilter = [
+    new ebay.ItemFilter("FreeShippingOnly", false),
+    new ebay.ItemFilter("AvailableTo", 'NO')
+  ]
+  option = new Option('FindingService', 'findItemsAdvanced')
+  option.setFilters(filters)
+  option.setParams(params)
+  callEbay(option, (error, items) ->
     calculateShippingCosts(items, (shippingCosts) ->
+      console.log 'got shipping costs: ' + shippingCosts
       html = createEbayHTML(items, shippingCosts)
       res.writeHead(200, {
         'Content-Length': Buffer.byteLength(html),
@@ -88,7 +134,7 @@ createError = (err) ->
 server.get "/cows/aktuelle", getCows
 server.get "/bulls", getBulls
 server.post "/cows", postCow
-server.get "/ebay", callEbay
+server.get "/ebay", getEbay
 
 server.listen 8080, ->
 	console.log "%s listening at %s", server.name, server.url
