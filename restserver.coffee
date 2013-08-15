@@ -39,8 +39,23 @@ getBulls = (req, res, next) ->
 postCow = (req, res, next) ->
 	console.log 'postCow: ' + req
 
-createEbayHTML = (items, shippingCosts) ->
+sortByDate = (a, b) ->
+  aName = new Date(a.listingInfo.startTime)
+  bName = new Date(b.listingInfo.startTime) 
+  console.log 'aName: ' + aName
+  console.log 'bName: ' + bName
+  ret = 0
+  if(aName.getTime() < bName.getTime())
+    ret = 1
+  else if(aName.getTime() > bName.getTime())
+    ret = -1
+  console.log ret
+  return ret
+  
+createEbayHTML = (inItems, shippingCosts) ->
+  items = inItems.sort(sortByDate)
   html = '<html><body><table border="1">'
+  html = html + '<tr><td>Found' + items.length + ' items</td></tr>'
   count = 0
   for item in items
     html = html + '<tr>'
@@ -49,12 +64,23 @@ createEbayHTML = (items, shippingCosts) ->
     html = html + '<td>$' + item.sellingStatus.currentPrice.USD + '</td>'
     html = html + '<td><a href="' + item.viewItemURL + '">ebay</a></td>'
     html = html + '<td id="shippingCost">' + shippingCosts[count++] + '</td>'
+    html = html + '<td>' + item.listingInfo.buyItNowAvailable + '</td>'
+    startTime = new Date(item.listingInfo.startTime)
+    endTime = new Date(item.listingInfo.endTime)
+    html = html + '<td>' + startTime.getDate() + '.' + (startTime.getMonth() + 1) + '</td>'
+    html = html + '<td>' + endTime.getDate() + '.' + (endTime.getMonth() + 1) + '</td>'
     html = html + '</tr>'
 
   html = html + '</table></body></html>'
   return html
 
 getShippingCosts = (items, callback) ->
+  costs = []
+  for item in items
+    costs.push 9
+  callback('', costs)
+
+getShippingCosts2 = (items, callback) ->
   console.log 'calculating shipping for items'
   costs = []
   resultCount = 0
@@ -65,7 +91,7 @@ getShippingCosts = (items, callback) ->
     params = {}
     params.ItemID = item.itemId
     params.DestinationCountryCode = 'NO'
-    #params.DestinationPostalCode = '1903'
+    params.DestinationPostalCode = '1903'
     params.IncludeDetails = true
     params.MessageID = item.itemId
     paginationInput = {}
@@ -76,14 +102,14 @@ getShippingCosts = (items, callback) ->
       console.log 'got shipping call response'
       resultCount++
       costs[index] = shippingCost;
-      if(resultCount == items.length)
+      if((error.length == 0) && (resultCount == items.length))
         console.log 'got all shipping costs'
         callback(costs)
     )
     index++
 
 getEbayItems = (items, callback) ->
-  console.log 'calculating shipping for items'
+  console.log 'getting ebay items...'
   costs = []
   resultCount = 0
   index = 0
@@ -141,6 +167,6 @@ server.get "/bulls", getBulls
 server.post "/cows", postCow
 server.get "/ebay", getEbay
 
-server.listen 8080, ->
+server.listen 8089, ->
 	console.log "%s listening at %s", server.name, server.url
 
